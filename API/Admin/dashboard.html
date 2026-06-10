@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinTrack - Executive Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #f8fafc; }
+        .navbar { background-color: #ffffff; border-bottom: 1px solid #e2e8f0; }
+        .metric-card, .chart-card, .table-container {
+            background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
+        }
+        .table-badge {
+            background-color: #e0e7ff; color: #4f46e5; font-weight: 600; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg px-4 py-3 sticky-top shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold text-primary" href="#">FinTrack <span class="text-secondary fs-6 fw-normal">| Control Room</span></a>
+            <div class="d-flex align-items-center">
+                <span class="me-3 text-dark fw-semibold">Welcome, <span id="displayAdminName" class="text-primary">Admin</span>! 👑</span>
+                <button onclick="adminLogout()" class="btn btn-sm btn-outline-danger px-3 rounded-pill">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4 pb-5">
+        <div class="mb-4">
+            <h3 class="fw-bold text-dark m-0">System Analytics Dashboard</h3>
+            <p class="text-muted small">Live database queries execution, graph metrics, and system controls.</p>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="metric-card p-3 border-start border-primary border-4 shadow-sm">
+                    <span class="text-muted small fw-bold text-uppercase d-block mb-1">Total Users</span>
+                    <h3 class="fw-bold text-dark m-0" id="statTotalUsers">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card p-3 border-start border-info border-4 shadow-sm">
+                    <span class="text-muted small fw-bold text-uppercase d-block mb-1">Total Admins</span>
+                    <h3 class="fw-bold text-info m-0" id="statTotalAdmins">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card p-3 border-start border-success border-4 shadow-sm">
+                    <span class="text-muted small fw-bold text-uppercase d-block mb-1">Global Inflows</span>
+                    <h3 class="fw-bold text-success m-0" id="statGlobalInflow">Rs 0.00</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card p-3 border-start border-danger border-4 shadow-sm">
+                    <span class="text-muted small fw-bold text-uppercase d-block mb-1">Global Outflows</span>
+                    <h3 class="fw-bold text-danger m-0" id="statGlobalOutflow">Rs 0.00</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="chart-card p-4 shadow-sm h-100">
+                    <h6 class="fw-bold text-dark mb-3">🟢 Pie: Cashflow Proportion</h6>
+                    <div style="max-width: 230px; margin: 0 auto;">
+                        <canvas id="pieChartCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="chart-card p-4 shadow-sm h-100">
+                    <h6 class="fw-bold text-dark mb-3">📊 Bar: Top Breached Categories</h6>
+                    <canvas id="barChartCanvas"></canvas>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="chart-card p-4 shadow-sm h-100">
+                    <h6 class="fw-bold text-dark mb-3">📈 Histogram: TX Value Distribution</h6>
+                    <canvas id="histogramCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-8">
+                <div class="table-container p-4 shadow-sm h-100">
+                    <h5 class="fw-bold text-dark mb-3">👥 System User Directory Ledger</h5>
+                    <div class="table-responsive">
+                        <table class="table align-middle m-0 table-hover">
+                            <thead class="table-light small text-uppercase">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User</th>
+                                    <th>Net Balance</th>
+                                    <th>Budget Status / Alerts</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">Reading data stream...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="table-container p-4 shadow-sm h-100">
+                    <h5 class="fw-bold text-dark mb-1">🗄️ Neon DB Live Schema</h5>
+                    <p class="text-muted small mb-3">Detected Tables count: <span class="fw-bold text-primary" id="dbTotalTablesCount">0 Tables</span></p>
+                    
+                    <div class="d-flex flex-column gap-2" id="dbTablesMappingContainer">
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Security check
+        const currentAdmin = localStorage.getItem('adminUser');
+        if (!currentAdmin) { window.location.href = 'login.html'; }
+        else { document.getElementById('displayAdminName').innerText = JSON.parse(currentAdmin).name; }
+
+        function adminLogout() {
+            localStorage.removeItem('adminUser');
+            window.location.href = 'login.html';
+        }
+
+        let pieChart, barChart, histogramChart;
+
+        window.onload = function() {
+            loadDashboardRuntime();
+        };
+
+        async function loadDashboardRuntime() {
+            try {
+                console.log("Fetching metrics from API...");
+                const response = await fetch('http://localhost:3000/api/admin/metrics');
+                
+                if (!response.ok) {
+                    alert("System error on gathering metrics data.");
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log("Data received successfully:", data);
+
+                // 1. Bind Counters Cards
+                document.getElementById('statTotalUsers').innerText = data.totalUsers;
+                document.getElementById('statTotalAdmins').innerText = data.totalAdmins;
+                document.getElementById('statGlobalInflow').innerText = `Rs ${data.globalInflows.toLocaleString('en-IN')}`;
+                document.getElementById('statGlobalOutflow').innerText = `Rs ${data.globalOutflows.toLocaleString('en-IN')}`;
+
+                // 2. Bind Database Schema Monitor Section
+                document.getElementById('dbTotalTablesCount').innerText = `${data.totalTables} Tables`;
+                const dbContainer = document.getElementById('dbTablesMappingContainer');
+                dbContainer.innerHTML = '';
+                
+                if(data.tableNames && data.tableNames.length > 0) {
+                    data.tableNames.forEach((name, i) => {
+                        dbContainer.innerHTML += `
+                            <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded border">
+                                <span class="fw-semibold text-dark small">${i+1}. ${name}</span>
+                                <span class="table-badge">Active Structure</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    dbContainer.innerHTML = '<div class="text-muted small text-center p-2">No tables found.</div>';
+                }
+
+                // 3. Bind Users Ledger Table
+                const tbody = document.getElementById('usersTableBody');
+                tbody.innerHTML = '';
+                
+                if(data.usersList && data.usersList.length > 0) {
+                    data.usersList.forEach(user => {
+                        const tr = document.createElement('tr');
+                        const balanceClass = user.balance >= 0 ? 'text-success' : 'text-danger';
+                        
+                        let alertBadge = user.isBreaching 
+                            ? `<span class="badge bg-danger-subtle text-danger border border-danger-subtle p-2 text-wrap text-start d-block">⚠️ ${user.breachDetails}</span>`
+                            : `<span class="badge bg-success-subtle text-success border border-success-subtle p-2">Safe Bounds</span>`;
+
+                        tr.innerHTML = `
+                            <td class="fw-bold text-muted">#${user.id}</td>
+                            <td><div class="fw-semibold">${user.name}</div><div class="text-muted small">${user.email}</div></td>
+                            <td class="${balanceClass} fw-bold">Rs ${user.balance.toFixed(2)}</td>
+                            <td>${alertBadge}</td>
+                            <td class="text-center"><button onclick="terminateUser(${user.id})" class="btn btn-sm btn-outline-danger rounded-pill px-3">Delete</button></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No registered users in system repository.</td></tr>';
+                }
+
+                // 4. Render Dynamic Shapes
+                renderComplexShapes(data);
+
+            } catch (err) { 
+                console.error("Fetch operational failure:", err);
+                alert("Backend server active nahi hai ya URL down hai. Terminal check karein.");
+            }
+        }
+
+        function renderComplexShapes(data) {
+            // A. Pie Shape Rendering
+            const ctxPie = document.getElementById('pieChartCanvas').getContext('2d');
+            if(pieChart) pieChart.destroy();
+            pieChart = new Chart(ctxPie, {
+                type: 'pie',
+                data: {
+                    labels: ['Global Inflows', 'Global Outflows'],
+                    datasets: [{ data: [data.globalInflows, data.globalOutflows], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0 }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // B. Bar Shape Rendering
+            const barLabels = data.topBreaches.map(b => b.category);
+            const barCounts = data.topBreaches.map(b => parseInt(b.breach_count));
+            const ctxBar = document.getElementById('barChartCanvas').getContext('2d');
+            if(barChart) barChart.destroy();
+            barChart = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: barLabels.length > 0 ? barLabels : ['No Breaches Logged'],
+                    datasets: [{ data: barCounts.length > 0 ? barCounts : [0], backgroundColor: '#4f46e5', borderRadius: 6 }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // C. Histogram Shape Rendering
+            const ctxHist = document.getElementById('histogramCanvas').getContext('2d');
+            if(histogramChart) histogramChart.destroy();
+            
+            const r1 = data.histogramData ? parseInt(data.histogramData.range1 || 0) : 0;
+            const r2 = data.histogramData ? parseInt(data.histogramData.range2 || 0) : 0;
+            const r3 = data.histogramData ? parseInt(data.histogramData.range3 || 0) : 0;
+            const r4 = data.histogramData ? parseInt(data.histogramData.range4 || 0) : 0;
+
+            histogramChart = new Chart(ctxHist, {
+                type: 'bar',
+                data: {
+                    labels: ['0-5k', '5k-15k', '15k-50k', '50k+'],
+                    datasets: [{ 
+                        data: [r1, r2, r3, r4], 
+                        backgroundColor: '#f59e0b', barPercentage: 1.0, categoryPercentage: 1.0 
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } } } }
+            });
+        }
+
+        async function terminateUser(id) {
+            if (confirm("Permanently account delete kar dein?")) {
+                const res = await fetch(`http://localhost:3000/api/admin/users/${id}`, { method: 'DELETE' });
+                if (res.ok) { alert("User profile eliminated."); loadDashboardRuntime(); }
+            }
+        }
+    </script>
+</body>
+</html>

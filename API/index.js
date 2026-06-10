@@ -362,6 +362,176 @@ app.get('/api/budget-tracker/:user_id', async (req, res) => {
   }
 });
 
+// 🛡️ ADMIN LOGIN ROUTE ONLY
+app.post('/api/admin/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const result = await pool.query(
+            'SELECT * FROM admins WHERE username = $1 AND password = $2', 
+            [username, password]
+        );
+        
+        if (result.rows.length > 0) {
+            const admin = result.rows[0];
+            // Login successful: id aur name bhej rahe hain frontend ko
+            res.json({ success: true, adminId: admin.id, name: admin.name });
+        } else {
+            res.status(401).json({ error: "Galt Admin Username ya Password hai!" });
+        }
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+// ========================================================
+// 📊 ADMIN ANALYTICS ENGINE ROUTE (Direct DB Integrated)
+// ========================================================
+app.get('/api/admin/metrics', async (req, res) => {
+    let totalUsers = 0;
+    let totalAdmins = 0;
+    let totalTables = 0;
+    let tableNames = [];
+    let globalInflows = 0;
+    let globalOutflows = 0;
+    let usersListData = [];
+    let topBreachesData = [];
+    let histogramData = { range1: 0, range2: 0, range3: 0, range4: 0 };
+
+    try {
+        // 1. Total Users Count
+        const resCount = await pool.query('SELECT COUNT(*) as count FROM users');
+        totalUsers = parseInt(resCount.rows[0]?.count || 0);
+
+        // 2. Total Admin Count (Safely checked with standard admins table)
+        try {
+            const resAdmin = await pool.query('SELECT COUNT(*) as count FROM admins');
+            totalAdmins = parseInt(resAdmin.rows[0]?.count || 0);
+        } catch(e) { 
+            totalAdmins = 1; // Fallback admin counter if table pending
+        }
+
+        // 3. System Tables Synchronization
+        const resTables = await pool.query(`
+            SELECT table_name FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+        `);
+        tableNames = resTables.rows.map(t => t.table_name) || [];
+        totalTables = tableNames.length;
+
+        // 4. Global Inflows Computation (Using EXACT Exp_transactions table name)
+        const globalInflowRes = await pool.query(`
+            SELECT SUM(amount) as total FROM Exp_transactions 
+            WHERE UPPER(type) = 'INFLOW'
+        `);
+        globalInflows = parseFloat(globalInflowRes.rows[0]?.total || 0);
+
+        // 5. Global Outflows Computation (Using EXACT Exp_transactions table name)
+        const globalOutflowRes = await pool.query(`
+            SELECT SUM(amount) as total FROM Exp_transactions 
+            WHERE UPPER(type) = 'OUTFLOW'
+        `);
+        globalOutflows = parseFloat(globalOutflowRes.rows[0]?.total || 0);
+
+        // 6. User Ledger Computations (Calculating via Direct DB Engine)
+        const usersRes = await pool.query('SELECT id, name, email FROM users ORDER BY id DESC');
+        
+        for (let user of usersRes.rows) {
+            // Direct calculation for this specific user's total active inflows
+            const inflowQuery = await pool.query(`
+                SELECT COALESCE(SUM(amount), 0) as total FROM Exp_transactions 
+                WHERE user_id = $1 AND UPPER(type) = 'INFLOW'
+            `, [user.id]);
+            const userInflow = parseFloat(inflowQuery.rows[0]?.total || 0);
+
+            // Direct calculation for this specific user's total active outflows
+            const outflowQuery = await pool.query(`
+                SELECT COALESCE(SUM(amount), 0) as total FROM Exp_transactions 
+                WHERE user_id = $1 AND UPPER(type) = 'OUTFLOW'
+            `, [user.id]);
+            const userOutflow = parseFloat(outflowQuery.rows[0]?.total || 0);
+
+            // Detect Budget breaches dynamically
+            let isBreaching = false;
+            let breachDetails = 'Safe Bounds';
+            
+            try {
+                const breachRes = await pool.query(`
+                    SELECT b.category_name, b.amount as budget_limit, COALESCE(SUM(t.amount), 0) as spent
+                    FROM monthly_budgets b
+                    JOIN Exp_transactions t ON b.user_id = t.user_id AND LOWER(b.category_name) = LOWER(t.category)
+                    WHERE b.user_id = $1 AND UPPER(t.type) = 'OUTFLOW'
+                    GROUP BY b.category_name, b.amount
+                    HAVING COALESCE(SUM(t.amount), 0) > b.amount
+                `, [user.id]);
+                
+                if (breachRes && breachRes.rows.length > 0) {
+                    isBreaching = true;
+                    breachDetails = breachRes.rows.map(b => `${b.category_name} (Crossed by Rs ${(parseFloat(b.spent) - parseFloat(b.budget_limit)).toFixed(0)})`).join(', ');
+                }
+            } catch(e) {}
+
+            // Append structured calculated output 
+            usersListData.push({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                balance: (userInflow - userOutflow), // Pure subtraction logic match
+                isBreaching: isBreaching,
+                breachDetails: breachDetails
+            });
+        }
+
+        // 7. Histogram Dynamic Ranges Module (Distributing Outflows strictly)
+        const histRes = await pool.query(`
+            SELECT 
+                COUNT(CASE WHEN CAST(amount AS NUMERIC) <= 5000 THEN 1 END) as range1,
+                COUNT(CASE WHEN CAST(amount AS NUMERIC) > 5000 AND CAST(amount AS NUMERIC) <= 15000 THEN 1 END) as range2,
+                COUNT(CASE WHEN CAST(amount AS NUMERIC) > 15000 AND CAST(amount AS NUMERIC) <= 50000 THEN 1 END) as range3,
+                COUNT(CASE WHEN CAST(amount AS NUMERIC) > 50000 THEN 1 END) as range4
+            FROM Exp_transactions 
+            WHERE UPPER(type) = 'OUTFLOW'
+        `);
+        if (histRes && histRes.rows[0]) {
+            histogramData = {
+                range1: parseInt(histRes.rows[0].range1 || 0),
+                range2: parseInt(histRes.rows[0].range2 || 0),
+                range3: parseInt(histRes.rows[0].range3 || 0),
+                range4: parseInt(histRes.rows[0].range4 || 0)
+            };
+        }
+
+        // 8. Platform Wide top breached categories for Bar Chart
+        try {
+            const topBRes = await pool.query(`
+                SELECT t.category, COUNT(*) as breach_count
+                FROM monthly_budgets b
+                JOIN Exp_transactions t ON b.user_id = t.user_id AND LOWER(b.category_name) = LOWER(t.category)
+                WHERE UPPER(t.type) = 'OUTFLOW'
+                GROUP BY t.category, b.amount
+                HAVING SUM(t.amount) > b.amount
+                ORDER BY breach_count DESC LIMIT 5
+            `);
+            topBreachesData = topBRes.rows || [];
+        } catch(e) {}
+
+    } catch (err) {
+        console.error("METRICS ENGINE ERROR LOG:", err.message);
+    }
+
+    // Dynamic clean objects stream sent to dashboard layout without crash points
+    res.json({
+        totalUsers,
+        totalAdmins,
+        totalTables,
+        tableNames,
+        globalInflows,
+        globalOutflows,
+        usersList: usersListData,
+        topBreaches: topBreachesData,
+        histogramData: histogramData
+    });
+});
+
 // SERVER LISTEN
 app.listen(3000, () => {
   console.log('Server is Running on PORT 3000');
