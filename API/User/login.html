@@ -23,11 +23,11 @@
                     <form id="loginForm">
                         <div class="mb-3">
                             <label class="form-label">Email Address</label>
-                            <input type="email" id="email" class="form-control" placeholder="Enter Email..." required>
+                            <input type="email" id="email" class="form-control" placeholder="name@example.com" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="password" id="password" class="form-control" placeholder="Enter Password..." required>
+                            <input type="password" id="password" class="form-control" placeholder="••••••••" required>
                         </div>
                         <button type="submit" class="btn btn-success w-100 py-2 fw-semibold mt-2">Sign In</button>
                     </form>
@@ -40,15 +40,10 @@
         </div>
     </div>
 
+    
 </body>
 </html>
-
 <script>
-    // 🌍 Dynamic Codespaces URL Detection Logic
-    const backendUrl = window.location.hostname.includes('github.dev') || window.location.hostname.includes('app.github.dev')
-        ? `${window.location.protocol}//${window.location.hostname.replace('-3000', '')}` 
-        : 'http://localhost:3000';
-
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -56,8 +51,7 @@
         const passwordData = document.getElementById('password').value;
 
         try {
-            // Updated template literal properly to point towards backendUrl
-            const response = await fetch(`${backendUrl}/api/user/login`, {
+            const response = await fetch('http://localhost:3000/api/user/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -69,14 +63,16 @@
             const result = await response.json();
 
             if (response.ok) {
+                // 📝 YAHAN CHANGE KIYA: Poora user object string banakar save kar rahe hain
                 localStorage.setItem('user', JSON.stringify(result.user));
+                
                 alert('Login Successful!');
                 window.location.href = 'dashboard.html';
             } else {
                 alert(result.error);
             }
         } catch (err) {
-            alert(err);
+            alert('Backend server band hai!');
         }
     });
 </script>
