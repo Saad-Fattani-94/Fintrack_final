@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinTrack - User Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', sans-serif; }
+        .navbar { background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .card-custom { border: none; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); background: #fff; transition: 0.3s; }
+        .card-custom:hover { transform: translateY(-2px); }
+        .modal-content { border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        
+        .cat-badge {
+            background-color: #f8f9fa; border: 1px solid #dee2e6;
+            padding: 6px 14px; border-radius: 50px;
+            display: inline-flex; align-items: center; font-size: 15px; color: #212529;
+        }
+        .cat-delete-btn { background: none; border: none; color: #e74c3c; font-weight: bold; margin-left: 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light px-4 py-3">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold text-success fs-3" href="#">FinTrack</a>
+            <div class="d-flex align-items-center">
+                <span class="me-3 text-secondary fw-semibold">Welcome, <span id="username" class="text-dark fw-bold">User</span>!</span>
+                <button onclick="logout()" class="btn btn-outline-danger btn-sm px-3 rounded-pill fw-semibold">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid my-5 px-5">
+        
+        <div class="mb-4">
+            <h2 class="fw-bold m-0 text-dark">Financial Overview</h2>
+            <p class="text-muted small m-0">Track your monthly budget limits and live cash flows</p>
+        </div>
+            
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <button id="primaryIncomeBtn" class="btn btn-success fw-semibold px-3 py-2 rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#primaryIncomeModal">
+                + Add Primary Income
+            </button>
+            <button class="btn btn-info fw-semibold px-3 py-2 rounded-3 text-white shadow-sm" data-bs-toggle="modal" data-bs-target="#secondaryIncomeModal">
+                + Add Secondary Income
+            </button>
+            <button class="btn btn-danger fw-semibold px-3 py-2 rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#addExpenseModal" onclick="populateExpenseDropdown()">
+                💸 Add Expense
+            </button>
+            <button class="btn btn-dark fw-semibold px-3 py-2 rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#categoryModal" onclick="loadUserCategories()">
+                + Manage Categories
+            </button>
+            <button id="assignBudgetBtnNav" class="btn btn-warning fw-semibold px-3 py-2 rounded-3 text-white shadow-sm" data-bs-toggle="modal" data-bs-target="#budgetModal" onclick="populateBudgetDropdown()">
+                📈 Assign Budget
+            </button>
+            <button class="btn btn-purple fw-semibold px-3 py-2 rounded-3 text-white shadow-sm" style="background-color: #9b59b6;" data-bs-toggle="modal" data-bs-target="#viewBudgetModal" onclick="loadUserBudgets()">
+                👁️ View Budgeting
+            </button>
+            <button class="btn btn-primary fw-semibold px-3 py-2 rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#reportModal" onclick="generateUserReportSheet()">
+                📊 View Report
+            </button>
+        </div>
+        
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="card-custom p-4 border-start border-success border-5">
+                    <p class="text-muted small mb-1 fw-bold text-uppercase">Total Income</p>
+                    <h3 class="fw-bold text-success m-0" id="totalIncomeCard">Rs 0.00</h3>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-custom p-4 border-start border-danger border-5">
+                    <p class="text-muted small mb-1 fw-bold text-uppercase">Total Expenses</p>
+                    <h3 class="fw-bold text-danger m-0" id="totalExpensesCard">Rs 0.00</h3>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-custom p-4 border-start border-primary border-5">
+                    <p class="text-muted small mb-1 fw-bold text-uppercase">Available Balance</p>
+                    <h3 class="fw-bold text-primary m-0" id="availableBalanceCard">Rs 0.00</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-5">
+            <h4 class="fw-bold text-dark mb-3">🎯 Keep Eye on Budget</h4>
+            <div id="budgetTrackerContainer" class="row g-3">
+                <div class="col-12"><span class="text-muted small">No budgets assigned to track yet.</span></div>
+            </div>
+        </div>
+
+        <div class="card-custom p-4">
+            <h5 class="fw-bold mb-4 text-dark">Recent Transactions Logs</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle m-0">
+                    <thead class="table-light text-secondary small text-uppercase">
+                        <tr>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionTableBody" class="text-dark">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Loading operational data sheets...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="primaryIncomeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content p-3">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-dark fs-4">Add Primary Income</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="closePrimaryModalBtn"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Apni is mahine ki Fixed Primary Income (Salary) enter karein:</label>
+                        <input type="number" id="primaryIncomeAmountInput" class="form-control form-control-lg text-dark fw-bold" placeholder="e.g. 50000">
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light fw-semibold px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" onclick="submitPrimaryIncomeModalForm()" class="btn btn-success fw-semibold px-4 text-white">Save Income</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="secondaryIncomeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content p-3">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-dark fs-4">Add Secondary Income</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="closeSecondaryModalBtn"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Description / Title</label>
+                        <input type="text" id="secondaryTitleInput" class="form-control text-dark fw-semibold" placeholder="e.g. Freelance Task">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Amount (Rs)</label>
+                        <input type="number" id="secondaryAmountInput" class="form-control form-control-lg text-dark fw-bold" placeholder="e.g. 12000">
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light fw-semibold px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" onclick="submitSecondaryIncome()" class="btn btn-info fw-semibold px-4 text-white">Save Income</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addExpenseModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content p-3">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-dark fs-4">Record New Expense</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="closeExpenseModalBtn"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Expense Title / Merchant</label>
+                        <input type="text" id="expenseTitleInput" class="form-control text-dark fw-semibold" placeholder="e.g. Fuel Petrol">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Select Category</label>
+                        <select id="expenseCategorySelect" class="form-select fw-semibold text-dark">
+                            </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Spent Amount (Rs)</label>
+                        <input type="number" id="expenseAmountInput" class="form-control form-control-lg text-dark fw-bold" placeholder="e.g. 2500">
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light fw-semibold px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" onclick="submitExpenseTransaction()" class="btn btn-danger fw-semibold px-4 text-white">Record Expense</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content p-3">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-dark fs-4">Manage Expense Categories</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="closeCategoryModalBtn"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <div class="input-group mb-4">
+                        <input type="text" id="categoryNameInput" class="form-control fw-semibold" placeholder="e.g. Grocery, Bills">
+                        <button class="btn btn-success fw-semibold" type="button" onclick="submitExpenseCategory()">+ Add</button>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-2">Aap ki Categories:</h6>
+                    <div id="categoriesListContainer" class="d-flex flex-wrap gap-2 py-2"></div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary fw-semibold px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="budgetModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content p-3">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-dark fs-4" id="budgetModalTitle">Assign Monthly Budget</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="closeBudgetModalBtn"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Select Category</label>
+                        <select id="budgetCategorySelect" class="form-select fw-semibold text-dark"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary">Budget Amount Limit (Rs)</label>
+                        <input type="number" id="budgetAmountInput" class="form-control form-control-lg text-dark fw-bold" placeholder="e.g. 8000">
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light fw-semibold px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" onclick="submitMonthlyBudget()" class="btn btn-warning fw-semibold px-4 text-white">Save Budget</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="viewBudgetModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content p-3">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-dark fs-4">Is Month Ki Budgeting Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="closeViewBudgetModalBtn"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle m-0">
+                            <thead class="table-light text-secondary small text-uppercase">
+                                <tr>
+                                    <th>Category Name</th>
+                                    <th>Assigned Limit</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="budgetTableBody" class="text-dark"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary fw-semibold px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content p-4">
+                <div class="modal-header border-0">
+                    <div>
+                        <h4 class="modal-title fw-bold text-dark m-0">📊 Comprehensive Financial Statement</h4>
+                        <p class="text-muted small m-0">User transaction logs mapping sheets with budget breach tracking</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <div class="table-responsive border rounded-3 mb-4">
+                        <table class="table align-middle m-0">
+                            <thead class="table-light text-secondary small text-uppercase">
+                                <tr>
+                                    <th class="ps-3">Transaction Title</th>
+                                    <th>Category</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportTableBody" class="text-dark">
+                                </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-success-subtle border border-success-subtle rounded-3">
+                                <span class="small text-success fw-bold text-uppercase d-block mb-1">Total Account Inflow</span>
+                                <h4 class="fw-bold text-success m-0" id="reportTotalIncome">Rs 0.00</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-danger-subtle border border-danger-subtle rounded-3">
+                                <span class="small text-danger fw-bold text-uppercase d-block mb-1">Total Account Outflow</span>
+                                <h4 class="fw-bold text-danger m-0" id="reportTotalExpenses">Rs 0.00</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-primary-subtle border border-primary-subtle rounded-3">
+                                <span class="small text-primary fw-bold text-uppercase d-block mb-1">Net Disposable Balance</span>
+                                <h4 class="fw-bold text-primary m-0" id="reportAvailableBalance">Rs 0.00</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary fw-semibold px-4" data-bs-dismiss="modal">Close Report</button>
+                    <button type="button" class="btn btn-dark fw-semibold px-4" onclick="window.print()">🖨️ Print Statement</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const sessionUser = localStorage.getItem('user');
+        if (!sessionUser) { 
+            alert("Pehle apna account login karein!");
+            window.location.href = 'login.html'; 
+        }
+        
+        const user = JSON.parse(sessionUser);
+        document.getElementById('username').innerText = user.name;
+
+        // Core App Dashboard Metrics Engine
+        async function loadDashboardData() {
+            if (!sessionUser) return;
+            try {
+                const response = await fetch(`http://localhost:3000/api/transactions/${user.id}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('totalIncomeCard').innerText = `Rs ${parseFloat(data.totalIncome).toFixed(2)}`;
+                    document.getElementById('totalExpensesCard').innerText = `Rs ${parseFloat(data.totalExpenses).toFixed(2)}`;
+                    document.getElementById('availableBalanceCard').innerText = `Rs ${parseFloat(data.availableBalance).toFixed(2)}`;
+
+                    const tableBody = document.getElementById('transactionTableBody');
+                    tableBody.innerHTML = ''; 
+
+                    let hasPrimaryIncomeThisMonth = false;
+                    const currentMonth = new Date().getMonth();
+                    const currentYear = new Date().getFullYear();
+
+                    if (!data.transactions || data.transactions.length === 0) {
+                        tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No transactions added yet.</td></tr>`;
+                        toggleButtonState(false);
+                        renderLiveBudgetTracker();
+                        return;
+                    }
+
+                    data.transactions.forEach(tx => {
+                        const row = document.createElement('tr');
+                        const dateObj = new Date(tx.date);
+                        const txDate = dateObj.toLocaleDateString('en-GB');
+
+                        if (tx.category === 'Primary Income' && dateObj.getMonth() === currentMonth && dateObj.getFullYear() === currentYear) {
+                            hasPrimaryIncomeThisMonth = true;
+                        }
+
+                        const isOutflow = tx.type.toUpperCase() === 'OUTFLOW';
+                        const badgeClass = isOutflow ? 'bg-danger-subtle text-danger border-danger-subtle' : (tx.category === 'Primary Income' ? 'bg-success-subtle text-success border-success-subtle' : 'bg-info-subtle text-info border-info-subtle');
+                        const amtColor = isOutflow ? 'text-danger' : 'text-success';
+                        const prefixSign = isOutflow ? '-' : '+';
+                        
+                        // Dynamic key/ID resolver for action binding
+                        const txIdentifier = tx.id || tx._id;
+
+                        row.innerHTML = `
+                            <td class="fw-semibold text-secondary-emphasis">${tx.title}</td>
+                            <td><span class="badge ${badgeClass} border rounded-pill px-3 py-2 small">${tx.category}</span></td>
+                            <td class="fw-bold ${amtColor}">${prefixSign} Rs ${parseFloat(tx.amount).toLocaleString('en-IN')}</td>
+                            <td class="text-uppercase small fw-bold text-muted">${tx.type}</td>
+                            <td class="text-secondary small">${txDate}</td>
+                            <td class="text-center">
+                                <button onclick="deleteTransaction('${txIdentifier}')" class="btn btn-sm btn-outline-danger px-2 py-1 rounded-2 small" style="font-size: 12px;">
+                                    🗑️ Delete
+                                </button>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                    
+                    toggleButtonState(hasPrimaryIncomeThisMonth);
+                    renderLiveBudgetTracker();
+                }
+            } catch (err) { console.error("Metrics breakdown:", err); }
+        }
+
+        // 🔥 BRAND NEW: LIVE TRANSACTION DELETE TRIGGER FLOW
+        async function deleteTransaction(txId) {
+            if (!txId || txId === 'undefined') {
+                alert("Error: Is transaction ki unique ID backend se nahi mili!");
+                return;
+            }
+            if (confirm("Kya aap waqai yeh transaction delete karna chahte hain? Is se aap ka poora budget re-calculate ho jayega.")) {
+                try {
+                    const response = await fetch(`http://localhost:3000/api/transactions/${txId}`, {
+                        method: 'DELETE'
+                    });
+                    if (response.ok) {
+                        alert("Transaction successfully delete ho gayi!");
+                        loadDashboardData(); // Re-trigger live dashboard panels & trackers refresh
+                    } else {
+                        const errData = await response.json();
+                        alert(errData.error || "Delete karne mein koi masla hua.");
+                    }
+                } catch (err) {
+                    console.error("Delete request failure:", err);
+                    alert("Backend server se connect nahi ho saka.");
+                }
+            }
+        }
+
+        // Live Tracker Cards Dynamic Loader with Dynamic Warning Condition
+        async function renderLiveBudgetTracker() {
+            try {
+                const response = await fetch(`http://localhost:3000/api/budget-tracker/${user.id}`);
+                const trackData = await response.json();
+
+                const container = document.getElementById('budgetTrackerContainer');
+                container.innerHTML = '';
+
+                if (!trackData || trackData.length === 0) {
+                    container.innerHTML = '<div class="col-12"><span class="text-muted small">No budgets assigned to track yet.</span></div>';
+                    return null;
+                }
+
+                trackData.forEach(card => {
+                    const isOverBudget = card.remaining < 0;
+                    const statusColor = isOverBudget ? 'text-danger fw-bold' : 'text-success fw-bold';
+                    const borderAlert = isOverBudget ? 'border-danger border-2' : 'border-warning';
+                    
+                    const remainingFormatted = isOverBudget 
+                        ? `- Rs ${Math.abs(card.remaining).toLocaleString('en-IN')}` 
+                        : `Rs ${card.remaining.toLocaleString('en-IN')}`;
+
+                    const divCol = document.createElement('div');
+                    divCol.className = 'col-md-3';
+                    divCol.innerHTML = `
+                        <div class="card-custom p-3 border-top ${borderAlert}">
+                            <h6 class="fw-bold text-dark mb-1">${card.category}</h6>
+                            <p class="text-muted small mb-2" style="font-size:12px;">Total Limit: Rs ${card.limit.toLocaleString('en-IN')}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="small text-secondary">Remaining:</span>
+                                <span class="${statusColor}">${remainingFormatted}</span>
+                            </div>
+                            ${isOverBudget ? `
+                                <div class="mt-2 pt-1 border-top border-danger-subtle text-center">
+                                    <span class="badge bg-danger text-white w-100 py-1" style="font-size:11px; letter-spacing: 0.3px;">⚠️ Budget Overspent!</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                    container.appendChild(divCol);
+                });
+                return trackData;
+            } catch (err) { console.error(err); return null; }
+        }
+
+        // GENERATE REPORT WITH RED BREACH HIGHLIGHTS LOGIC
+        async function generateUserReportSheet() {
+            try {
+                const trackerResponse = await fetch(`http://localhost:3000/api/budget-tracker/${user.id}`);
+                const trackData = await trackerResponse.json();
+                
+                const breachedCategories = [];
+                if (trackData && Array.isArray(trackData)) {
+                    trackData.forEach(c => {
+                        if (c.remaining < 0) breachedCategories.push(c.category);
+                    });
+                }
+
+                const txResponse = await fetch(`http://localhost:3000/api/transactions/${user.id}`);
+                const txData = await txResponse.json();
+
+                if (txResponse.ok) {
+                    document.getElementById('reportTotalIncome').innerText = `Rs ${parseFloat(txData.totalIncome).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                    document.getElementById('reportTotalExpenses').innerText = `Rs ${parseFloat(txData.totalExpenses).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                    document.getElementById('reportAvailableBalance').innerText = `Rs ${parseFloat(txData.availableBalance).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+
+                    const reportTbody = document.getElementById('reportTableBody');
+                    reportTbody.innerHTML = '';
+
+                    if (!txData.transactions || txData.transactions.length === 0) {
+                        reportTbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No data metrics recorded yet.</td></tr>`;
+                        return;
+                    }
+
+                    txData.transactions.forEach(tx => {
+                        const row = document.createElement('tr');
+                        const isOutflow = tx.type.toUpperCase() === 'OUTFLOW';
+                        const isBreachedRow = isOutflow && breachedCategories.includes(tx.category);
+                        
+                        if (isBreachedRow) {
+                            row.className = "table-danger text-danger fw-semibold"; 
+                        }
+
+                        const txDate = new Date(tx.date).toLocaleDateString('en-GB');
+                        const prefixSign = isOutflow ? '-' : '+';
+                        const amountColor = isBreachedRow ? 'text-danger' : (isOutflow ? 'text-danger' : 'text-success');
+
+                        row.innerHTML = `
+                            <td class="ps-3">${tx.title} ${isBreachedRow ? '⚠️ (Overspent Category)' : ''}</td>
+                            <td><span class="badge bg-light text-dark border rounded-pill px-2 py-1">${tx.category}</span></td>
+                            <td class="text-uppercase small">${tx.type}</td>
+                            <td class="fw-bold ${amountColor}">${prefixSign} Rs ${parseFloat(tx.amount).toLocaleString('en-IN')}</td>
+                            <td class="text-secondary small">${txDate}</td>
+                        `;
+                        reportTbody.appendChild(row);
+                    });
+                }
+            } catch (err) { console.error("Report execution error:", err); }
+        }
+
+        // Sleek Bootstrap Primary Income Modal Submission Form
+        async function submitPrimaryIncomeModalForm() {
+            const amountInput = document.getElementById('primaryIncomeAmountInput');
+            const amount = amountInput.value;
+            if (!amount || isNaN(amount) || parseFloat(amount) <= 0) { alert("Sahi amount enter karein!"); return; }
+
+            try {
+                const response = await fetch('http://localhost:3000/api/transactions/primary-income', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id, amount: parseFloat(amount) })
+                });
+                if (response.ok) { 
+                    document.getElementById('closePrimaryModalBtn').click();
+                    amountInput.value = '';
+                    alert("Primary income successfully registered!"); 
+                    loadDashboardData(); 
+                } else { 
+                    const errData = await response.json(); 
+                    alert(errData.error); 
+                }
+            } catch (err) { alert(err.message); }
+        }
+
+        async function submitSecondaryIncome() {
+            const title = document.getElementById('secondaryTitleInput').value.trim();
+            const amount = document.getElementById('secondaryAmountInput').value;
+            if (!title || !amount || isNaN(amount) || parseFloat(amount) <= 0) { alert("Sahi details dalain!"); return; }
+            try {
+                const response = await fetch('http://localhost:3000/api/transactions/secondary-income', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id, title, amount: parseFloat(amount) })
+                });
+                if (response.ok) { 
+                    document.getElementById('closeSecondaryModalBtn').click(); 
+                    document.getElementById('secondaryTitleInput').value = ''; 
+                    document.getElementById('secondaryAmountInput').value = ''; 
+                    alert("Secondary income successfully saved."); 
+                    loadDashboardData(); 
+                }
+            } catch (err) { alert(err.message); }
+        }
+
+        // Dropdown Builders
+        async function populateExpenseDropdown() {
+            try {
+                const response = await fetch(`http://localhost:3000/api/categories/${user.id}`);
+                const categories = await response.json();
+                const dropdown = document.getElementById('expenseCategorySelect');
+                dropdown.innerHTML = '';
+
+                if (categories.length === 0) { 
+                    dropdown.innerHTML = '<option value="">-- No Categories Found --</option>';
+                    return; 
+                }
+                categories.forEach(cat => {
+                    const op = document.createElement('option');
+                    op.value = cat.category_name; op.innerText = cat.category_name; dropdown.appendChild(op);
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        async function submitExpenseTransaction() {
+            const title = document.getElementById('expenseTitleInput').value.trim();
+            const category = document.getElementById('expenseCategorySelect').value;
+            const amount = document.getElementById('expenseAmountInput').value;
+
+            if (!title || !category || !amount || isNaN(amount) || parseFloat(amount) <= 0) {
+                alert("Sahi specifications enter kijiye!"); return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:3000/api/transactions/expense', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id, title, category, amount: parseFloat(amount) })
+                });
+                if (response.ok) {
+                    document.getElementById('closeExpenseModalBtn').click();
+                    document.getElementById('expenseTitleInput').value = '';
+                    document.getElementById('expenseAmountInput').value = '';
+                    alert("Kharcha successfully save ho gaya!");
+                    loadDashboardData(); 
+                }
+            } catch (err) { alert(err.message); }
+        }
+
+        // Category Control Flows
+        async function loadUserCategories() {
+            try {
+                const response = await fetch(`http://localhost:3000/api/categories/${user.id}`);
+                const categories = await response.json();
+                const container = document.getElementById('categoriesListContainer');
+                container.innerHTML = '';
+                categories.forEach(cat => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = "cat-badge shadow-sm";
+                    wrapper.innerText = cat.category_name;
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = "cat-delete-btn";
+                    deleteBtn.innerHTML = "&times;";
+                    deleteBtn.onclick = function() { deleteCategory(cat.id); };
+                    wrapper.appendChild(deleteBtn);
+                    container.appendChild(wrapper);
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        async function submitExpenseCategory() {
+            const inputField = document.getElementById('categoryNameInput');
+            const name = inputField.value.trim();
+            if (!name) return;
+            try {
+                await fetch('http://localhost:3000/api/categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id, category_name: name })
+                });
+                inputField.value = ''; loadUserCategories();
+            } catch (err) {}
+        }
+
+        async function deleteCategory(id) {
+            try { await fetch(`http://localhost:3000/api/categories/${id}`, { method: 'DELETE' }); loadUserCategories(); } catch (err) {}
+        }
+
+        // Budget Allocations Tracker Engine
+        async function populateBudgetDropdown() {
+            try {
+                const response = await fetch(`http://localhost:3000/api/categories/${user.id}`);
+                const categories = await response.json();
+                const dropdown = document.getElementById('budgetCategorySelect');
+                dropdown.innerHTML = '<option value="">-- Select Category --</option>';
+                categories.forEach(cat => {
+                    const op = document.createElement('option');
+                    op.value = cat.category_name; op.innerText = cat.category_name; dropdown.appendChild(op);
+                });
+                document.getElementById('budgetModalTitle').innerText = "Assign Monthly Budget";
+            } catch (err) {}
+        }
+
+        async function submitMonthlyBudget() {
+            const cat = document.getElementById('budgetCategorySelect').value;
+            const amt = document.getElementById('budgetAmountInput').value;
+            if(!cat || !amt) { alert("Saare fields bharein!"); return; }
+            try {
+                await fetch('http://localhost:3000/api/budgets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id, category_name: cat, amount: parseFloat(amt) })
+                });
+                document.getElementById('closeBudgetModalBtn').click();
+                document.getElementById('budgetAmountInput').value = '';
+                alert("Budget assigned successfully!");
+                loadDashboardData(); 
+            } catch (err) {}
+        }
+
+        async function loadUserBudgets() {
+            try {
+                const response = await fetch(`http://localhost:3000/api/budgets/${user.id}`);
+                const budgets = await response.json();
+                const tbody = document.getElementById('budgetTableBody');
+                tbody.innerHTML = '';
+                budgets.forEach(b => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${b.category_name}</td>
+                        <td class="fw-bold text-warning">Rs ${parseFloat(b.amount).toLocaleString('en-IN')}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="triggerBudgetEdit('${b.category_name}', ${b.amount})">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteBudget(${b.id})">Delete</button>
+                        </td>`;
+                    tbody.appendChild(row);
+                });
+            } catch (err) {}
+        }
+
+        function triggerBudgetEdit(categoryName, currentAmount) {
+            document.getElementById('closeViewBudgetModalBtn').click();
+            setTimeout(() => {
+                populateBudgetDropdown().then(() => {
+                    document.getElementById('budgetCategorySelect').value = categoryName;
+                    document.getElementById('budgetAmountInput').value = currentAmount;
+                    document.getElementById('budgetModalTitle').innerText = `✏️ Update Budget for ${categoryName}`;
+                    const inst = new bootstrap.Modal(document.getElementById('budgetModal'));
+                    inst.show();
+                });
+            }, 400);
+        }
+
+        async function deleteBudget(id) {
+            try { await fetch(`http://localhost:3000/api/budgets/${id}`, { method: 'DELETE' }); loadUserBudgets(); loadDashboardData(); } catch (err) {}
+        }
+
+        function toggleButtonState(isLocked) {
+            const mainBtn = document.getElementById('primaryIncomeBtn'); if (!mainBtn) return;
+            if (isLocked) { 
+                mainBtn.disabled = true; 
+                mainBtn.innerText = "✓ Primary Income Added"; 
+                mainBtn.className = "btn btn-secondary fw-semibold px-3 py-2 rounded-3 shadow-sm"; 
+                mainBtn.removeAttribute('data-bs-toggle'); 
+            } else { 
+                mainBtn.disabled = false; 
+                mainBtn.innerText = "+ Add Primary Income"; 
+                mainBtn.className = "btn btn-success fw-semibold px-3 py-2 rounded-3 shadow-sm"; 
+                mainBtn.setAttribute('data-bs-toggle', 'modal'); 
+            }
+        }
+
+        // Init System Trigger On Boot
+        loadDashboardData();
+        function logout() { localStorage.removeItem('user'); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>
