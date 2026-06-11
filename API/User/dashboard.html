@@ -328,6 +328,14 @@
             alert("Pehle apna account login karein!");
             window.location.href = 'login.html'; 
         }
+
+        const currentDomain = window.location.hostname;
+        let backendUrl= "http://localhost:3000"; 
+
+        if (currentDomain.includes('github.dev')) {
+            const backendDomain = currentDomain.replace('-5500.', '-3000.');
+            backendUrl = `https://${backendDomain}`;
+        }
         
         const user = JSON.parse(sessionUser);
         document.getElementById('username').innerText = user.name;
@@ -336,7 +344,7 @@
         async function loadDashboardData() {
             if (!sessionUser) return;
             try {
-                const response = await fetch(`http://localhost:3000/api/transactions/${user.id}`);
+                const response = await fetch(`${backendUrl}/api/transactions/${user.id}`);
                 const data = await response.json();
 
                 if (response.ok) {
@@ -404,7 +412,7 @@
             }
             if (confirm("Kya aap waqai yeh transaction delete karna chahte hain? Is se aap ka poora budget re-calculate ho jayega.")) {
                 try {
-                    const response = await fetch(`http://localhost:3000/api/transactions/${txId}`, {
+                    const response = await fetch(`${backendUrl}/api/transactions/${txId}`, {
                         method: 'DELETE'
                     });
                     if (response.ok) {
@@ -424,7 +432,7 @@
         // Live Tracker Cards Dynamic Loader with Dynamic Warning Condition
         async function renderLiveBudgetTracker() {
             try {
-                const response = await fetch(`http://localhost:3000/api/budget-tracker/${user.id}`);
+                const response = await fetch(`${backendUrl}/api/budget-tracker/${user.id}`);
                 const trackData = await response.json();
 
                 const container = document.getElementById('budgetTrackerContainer');
@@ -470,7 +478,7 @@
         // GENERATE REPORT WITH RED BREACH HIGHLIGHTS LOGIC
         async function generateUserReportSheet() {
             try {
-                const trackerResponse = await fetch(`http://localhost:3000/api/budget-tracker/${user.id}`);
+                const trackerResponse = await fetch(`${backendUrl}/api/budget-tracker/${user.id}`);
                 const trackData = await trackerResponse.json();
                 
                 const breachedCategories = [];
@@ -480,7 +488,7 @@
                     });
                 }
 
-                const txResponse = await fetch(`http://localhost:3000/api/transactions/${user.id}`);
+                const txResponse = await fetch(`${backendUrl}/api/transactions/${user.id}`);
                 const txData = await txResponse.json();
 
                 if (txResponse.ok) {
@@ -529,7 +537,7 @@
             if (!amount || isNaN(amount) || parseFloat(amount) <= 0) { alert("Sahi amount enter karein!"); return; }
 
             try {
-                const response = await fetch('http://localhost:3000/api/transactions/primary-income', {
+                const response = await fetch('${backendUrl}/api/transactions/primary-income', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: user.id, amount: parseFloat(amount) })
@@ -551,7 +559,7 @@
             const amount = document.getElementById('secondaryAmountInput').value;
             if (!title || !amount || isNaN(amount) || parseFloat(amount) <= 0) { alert("Sahi details dalain!"); return; }
             try {
-                const response = await fetch('http://localhost:3000/api/transactions/secondary-income', {
+                const response = await fetch('${backendUrl}/api/transactions/secondary-income', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: user.id, title, amount: parseFloat(amount) })
@@ -569,7 +577,7 @@
         // Dropdown Builders
         async function populateExpenseDropdown() {
             try {
-                const response = await fetch(`http://localhost:3000/api/categories/${user.id}`);
+                const response = await fetch(`${backendUrl}/api/categories/${user.id}`);
                 const categories = await response.json();
                 const dropdown = document.getElementById('expenseCategorySelect');
                 dropdown.innerHTML = '';
@@ -595,7 +603,7 @@
             }
 
             try {
-                const response = await fetch('http://localhost:3000/api/transactions/expense', {
+                const response = await fetch(`${backendUrl}/api/transactions/expense`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: user.id, title, category, amount: parseFloat(amount) })
@@ -613,7 +621,7 @@
         // Category Control Flows
         async function loadUserCategories() {
             try {
-                const response = await fetch(`http://localhost:3000/api/categories/${user.id}`);
+                const response = await fetch(`${backendUrl}/api/categories/${user.id}`);
                 const categories = await response.json();
                 const container = document.getElementById('categoriesListContainer');
                 container.innerHTML = '';
@@ -636,7 +644,7 @@
             const name = inputField.value.trim();
             if (!name) return;
             try {
-                await fetch('http://localhost:3000/api/categories', {
+                await fetch(`${backendUrl}/api/categories`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: user.id, category_name: name })
@@ -646,13 +654,13 @@
         }
 
         async function deleteCategory(id) {
-            try { await fetch(`http://localhost:3000/api/categories/${id}`, { method: 'DELETE' }); loadUserCategories(); } catch (err) {}
+            try { await fetch(`${backendUrl}/api/categories/${id}`, { method: 'DELETE' }); loadUserCategories(); } catch (err) {}
         }
 
         // Budget Allocations Tracker Engine
         async function populateBudgetDropdown() {
             try {
-                const response = await fetch(`http://localhost:3000/api/categories/${user.id}`);
+                const response = await fetch(`${backendUrl}/api/categories/${user.id}`);
                 const categories = await response.json();
                 const dropdown = document.getElementById('budgetCategorySelect');
                 dropdown.innerHTML = '<option value="">-- Select Category --</option>';
@@ -669,7 +677,7 @@
             const amt = document.getElementById('budgetAmountInput').value;
             if(!cat || !amt) { alert("Saare fields bharein!"); return; }
             try {
-                await fetch('http://localhost:3000/api/budgets', {
+                await fetch(`${backendUrl}/api/budgets`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: user.id, category_name: cat, amount: parseFloat(amt) })
@@ -683,7 +691,7 @@
 
         async function loadUserBudgets() {
             try {
-                const response = await fetch(`http://localhost:3000/api/budgets/${user.id}`);
+                const response = await fetch(`${backendUrl}/api/budgets/${user.id}`);
                 const budgets = await response.json();
                 const tbody = document.getElementById('budgetTableBody');
                 tbody.innerHTML = '';
@@ -715,7 +723,7 @@
         }
 
         async function deleteBudget(id) {
-            try { await fetch(`http://localhost:3000/api/budgets/${id}`, { method: 'DELETE' }); loadUserBudgets(); loadDashboardData(); } catch (err) {}
+            try { await fetch(`${backendUrl}/api/budgets/${id}`, { method: 'DELETE' }); loadUserBudgets(); loadDashboardData(); } catch (err) {}
         }
 
         function toggleButtonState(isLocked) {

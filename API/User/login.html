@@ -40,10 +40,19 @@
         </div>
     </div>
 
-    
 </body>
 </html>
+
 <script>
+    // 🌍 Dynamic URL Detection (Codespaces Cloud Link VS Localhost)
+    const currentDomain = window.location.hostname;
+    let backendUrl= "http://localhost:3000"; 
+
+    if (currentDomain.includes('github.dev')) {
+        const backendDomain = currentDomain.replace('-5500.', '-3000.');
+        backendUrl = `https://${backendDomain}`;
+    }
+
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -51,7 +60,8 @@
         const passwordData = document.getElementById('password').value;
 
         try {
-            const response = await fetch('http://localhost:3000/api/user/login', {
+            // Hardcoded localhost hata kar dynamic backendUrl lagaya hai
+            const response = await fetch(`${backendUrl}/api/user/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -60,19 +70,21 @@
                 })
             });
 
-            const result = await response.json();
-
-            if (response.ok) {
-                // 📝 YAHAN CHANGE KIYA: Poora user object string banakar save kar rahe hain
-                localStorage.setItem('user', JSON.stringify(result.user));
-                
-                alert('Login Successful!');
-                window.location.href = 'dashboard.html';
-            } else {
-                alert(result.error);
+            // Agar network connect ho jaye par password galat ho ya koi aur backend validation issue ho
+            if (!response.ok) {
+                const result = await response.json();
+                alert(result.error || 'Login Failed');
+                return;
             }
+
+            const result = await response.json();
+            localStorage.setItem('user', JSON.stringify(result.user));
+            
+            alert('Login Successful!');
+            window.location.href = 'dashboard.html';
+
         } catch (err) {
-            alert('Backend server band hai!');
+            alert('Backend server band hai ya connection block ho raha hai!');
         }
     });
 </script>
